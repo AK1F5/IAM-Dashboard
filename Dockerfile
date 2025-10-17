@@ -35,7 +35,18 @@ RUN apt-get update -o Acquire::Retries=3 -o Acquire::ForceIPv4=true && \
             build-essential \
             gcc \
             g++ \
+            curl \
+            wget \
+            findutils \
         && rm -rf /var/lib/apt/lists/*
+
+# Install Gitleaks v8.28.0 (latest version)
+RUN wget https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz && \
+    tar -xzf gitleaks_8.28.0_linux_x64.tar.gz && \
+    mv gitleaks /usr/local/bin/ && \
+    chmod +x /usr/local/bin/gitleaks && \
+    rm gitleaks_8.28.0_linux_x64.tar.gz && \
+    gitleaks version
 
 # Copy requirements first for better caching
 COPY requirements.txt .

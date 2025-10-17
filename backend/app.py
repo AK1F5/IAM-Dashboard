@@ -19,6 +19,7 @@ from api.aws_config import ConfigResource
 from api.grafana import GrafanaResource
 from api.dashboard import DashboardResource
 from api.health import HealthResource
+from api.gitleaks import GitleaksResource
 
 # Import services
 from services.aws_service import AWSService
@@ -61,6 +62,7 @@ def create_app():
     api.add_resource(SecurityHubResource, '/aws/security-hub')
     api.add_resource(ConfigResource, '/aws/config')
     api.add_resource(GrafanaResource, '/grafana')
+    api.add_resource(GitleaksResource, '/gitleaks')
     
     # Serve static files (React frontend)
     @app.route('/')

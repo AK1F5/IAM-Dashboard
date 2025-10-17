@@ -14,196 +14,204 @@ import {
   Play, 
   Square, 
   Settings2, 
-  Cloud, 
   AlertTriangle, 
-  CheckCircle, 
   RefreshCw,
-  Server,
   Shield,
   Lock,
-  Unlock,
-  ExternalLink,
-  Cpu,
-  HardDrive,
-  Network
+  FileText
 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { DemoModeBanner } from "./DemoModeBanner";
 
-interface EC2SecurityFinding {
+interface GitleaksFinding {
   id: string;
-  instance_id: string;
-  instance_name: string;
-  instance_type: string;
-  region: string;
-  vpc_id: string;
-  subnet_id: string;
-  security_groups: string[];
+  rule_id: string;
+  file: string;
+  line: number;
+  column: number;
+  secret: string;
   severity: 'Critical' | 'High' | 'Medium' | 'Low';
-  finding_type: string;
+  rule_name: string;
   description: string;
   recommendation: string;
-  compliance_frameworks: string[];
-  public_ip?: string;
-  state: string;
-  launch_time: string;
+  tags: string[];
+  entropy?: number;
+  commit_hash?: string;
+  author?: string;
+  commit_date?: string;
   risk_score: number;
 }
 
-interface EC2ScanResult {
+interface GitleaksScanResult {
   scan_id: string;
   status: 'Running' | 'Completed' | 'Failed';
   progress: number;
-  account_id: string;
-  region: string;
-  total_instances: number;
-  findings: EC2SecurityFinding[];
+  repository_path: string;
+  scan_mode: string;
+  total_files_scanned: number;
+  findings: GitleaksFinding[];
   scan_summary: {
-    running_instances: number;
-    stopped_instances: number;
+    total_secrets: number;
     critical_findings: number;
     high_findings: number;
     medium_findings: number;
     low_findings: number;
-    publicly_accessible: number;
-    unencrypted_volumes: number;
+    files_with_secrets: number;
+    unique_secret_types: number;
   };
   started_at?: string;
   completed_at?: string;
 }
 
-// Mock EC2 security findings
-const mockEC2Findings: EC2SecurityFinding[] = [
+// Mock Gitleaks findings
+const mockGitleaksFindings: GitleaksFinding[] = [
   {
-    id: 'ec2-finding-001',
-    instance_id: 'i-0abcd1234efgh5678',
-    instance_name: 'web-server-prod',
-    instance_type: 't3.large',
-    region: 'us-east-1',
-    vpc_id: 'vpc-12345678',
-    subnet_id: 'subnet-87654321',
-    security_groups: ['sg-web-public', 'sg-ssh-access'],
+    id: 'gitleaks-finding-001',
+    rule_id: 'github-pat',
+    file: 'config/secrets.env',
+    line: 15,
+    column: 8,
+    secret: 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
     severity: 'Critical',
-    finding_type: 'Unrestricted SSH Access',
-    description: 'Security group allows SSH (port 22) access from 0.0.0.0/0',
-    recommendation: 'Restrict SSH access to specific IP ranges or use AWS Session Manager',
-    compliance_frameworks: ['CIS', 'SOC2'],
-    public_ip: '203.0.113.45',
-    state: 'running',
-    launch_time: '2024-09-15T10:00:00Z',
-    risk_score: 92
+    rule_name: 'GitHub Personal Access Token',
+    description: 'GitHub Personal Access Token found in configuration file',
+    recommendation: 'Remove the token from the file and use environment variables or secret management',
+    tags: ['github', 'api-key', 'token'],
+    entropy: 4.2,
+    commit_hash: 'a1b2c3d4e5f6',
+    author: 'developer@company.com',
+    commit_date: '2024-09-15T10:00:00Z',
+    risk_score: 95
   },
   {
-    id: 'ec2-finding-002',
-    instance_id: 'i-0xyz9876mnop5432',
-    instance_name: 'database-server',
-    instance_type: 'm5.xlarge',
-    region: 'us-east-1',
-    vpc_id: 'vpc-12345678',
-    subnet_id: 'subnet-11223344',
-    security_groups: ['sg-database'],
+    id: 'gitleaks-finding-002',
+    rule_id: 'aws-access-key',
+    file: 'src/config/aws.js',
+    line: 8,
+    column: 12,
+    secret: 'AKIAIOSFODNN7EXAMPLE',
     severity: 'High',
-    finding_type: 'Unencrypted EBS Volume',
-    description: 'EC2 instance has unencrypted EBS volumes containing sensitive data',
-    recommendation: 'Enable EBS encryption for all volumes and use AWS KMS keys',
-    compliance_frameworks: ['CIS', 'PCI-DSS'],
-    state: 'running',
-    launch_time: '2024-08-20T14:30:00Z',
-    risk_score: 85
+    rule_name: 'AWS Access Key',
+    description: 'AWS Access Key ID found in source code',
+    recommendation: 'Use IAM roles or environment variables instead of hardcoded credentials',
+    tags: ['aws', 'access-key', 'credentials'],
+    entropy: 3.8,
+    commit_hash: 'b2c3d4e5f6g7',
+    author: 'dev@company.com',
+    commit_date: '2024-09-14T15:30:00Z',
+    risk_score: 88
   },
   {
-    id: 'ec2-finding-003',
-    instance_id: 'i-0def5678uvwx1234',
-    instance_name: 'legacy-app-server',
-    instance_type: 't2.micro',
-    region: 'us-west-2',
-    vpc_id: 'vpc-87654321',
-    subnet_id: 'subnet-99887766',
-    security_groups: ['sg-legacy-app'],
+    id: 'gitleaks-finding-003',
+    rule_id: 'generic-api-key',
+    file: 'api/keys.json',
+    line: 3,
+    column: 15,
+    secret: 'sk_live_51234567890abcdef',
     severity: 'High',
-    finding_type: 'Outdated AMI',
-    description: 'Instance running on AMI with known security vulnerabilities',
-    recommendation: 'Update to latest patched AMI and implement automated patching',
-    compliance_frameworks: ['CIS'],
-    state: 'running',
-    launch_time: '2024-06-10T09:15:00Z',
-    risk_score: 78
+    rule_name: 'Generic API Key',
+    description: 'Generic API key detected in configuration file',
+    recommendation: 'Move API keys to secure environment variables or secret management system',
+    tags: ['api-key', 'generic'],
+    entropy: 4.1,
+    commit_hash: 'c3d4e5f6g7h8',
+    author: 'admin@company.com',
+    commit_date: '2024-09-13T11:20:00Z',
+    risk_score: 82
   },
   {
-    id: 'ec2-finding-004',
-    instance_id: 'i-0ghi2345jklm6789',
-    instance_name: 'test-environment',
-    instance_type: 't3.small',
-    region: 'us-east-1',
-    vpc_id: 'vpc-12345678',
-    subnet_id: 'subnet-55443322',
-    security_groups: ['sg-test-env'],
+    id: 'gitleaks-finding-004',
+    rule_id: 'database-url',
+    file: 'database/config.py',
+    line: 22,
+    column: 5,
+    secret: 'postgresql://user:password123@localhost:5432/mydb',
     severity: 'Medium',
-    finding_type: 'No Instance Monitoring',
-    description: 'CloudWatch detailed monitoring is disabled for this instance',
-    recommendation: 'Enable detailed monitoring and configure CloudWatch alarms',
-    compliance_frameworks: ['SOC2'],
-    state: 'running',
-    launch_time: '2024-09-25T16:45:00Z',
-    risk_score: 55
+    rule_name: 'Database Connection String',
+    description: 'Database connection string with credentials found',
+    recommendation: 'Use connection pooling and environment variables for database credentials',
+    tags: ['database', 'postgresql', 'connection'],
+    entropy: 3.2,
+    commit_hash: 'd4e5f6g7h8i9',
+    author: 'dba@company.com',
+    commit_date: '2024-09-12T09:45:00Z',
+    risk_score: 65
   },
   {
-    id: 'ec2-finding-005',
-    instance_id: 'i-0mno7890pqrs3456',
-    instance_name: 'backup-server',
-    instance_type: 't2.medium',
-    region: 'us-west-2',
-    vpc_id: 'vpc-87654321',
-    subnet_id: 'subnet-77665544',
-    security_groups: ['sg-backup'],
+    id: 'gitleaks-finding-005',
+    rule_id: 'slack-webhook',
+    file: 'notifications/slack.py',
+    line: 7,
+    column: 20,
+    secret: 'https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX',
     severity: 'Low',
-    finding_type: 'No Instance Tags',
-    description: 'Instance lacks proper resource tagging for cost allocation and management',
-    recommendation: 'Implement comprehensive tagging strategy for resource management',
-    compliance_frameworks: [],
-    state: 'stopped',
-    launch_time: '2024-07-05T11:20:00Z',
-    risk_score: 25
+    rule_name: 'Slack Webhook URL',
+    description: 'Slack webhook URL found in notification configuration',
+    recommendation: 'Store webhook URLs in environment variables or secure configuration',
+    tags: ['slack', 'webhook', 'notification'],
+    entropy: 2.8,
+    commit_hash: 'e5f6g7h8i9j0',
+    author: 'ops@company.com',
+    commit_date: '2024-09-11T14:15:00Z',
+    risk_score: 35
   }
 ];
 
-const mockEC2ScanResult: EC2ScanResult = {
-  scan_id: 'ec2-scan-demo-456',
+const mockGitleaksScanResult: GitleaksScanResult = {
+  scan_id: 'gitleaks-scan-demo-789',
   status: 'Completed',
   progress: 100,
-  account_id: '123456789012',
-  region: 'us-east-1',
-  total_instances: 28,
-  findings: mockEC2Findings,
+  repository_path: '/workspace',
+  scan_mode: 'full',
+  total_files_scanned: 1247,
+  findings: mockGitleaksFindings,
   scan_summary: {
-    running_instances: 22,
-    stopped_instances: 6,
+    total_secrets: 5,
     critical_findings: 1,
     high_findings: 2,
     medium_findings: 1,
     low_findings: 1,
-    publicly_accessible: 8,
-    unencrypted_volumes: 5
+    files_with_secrets: 5,
+    unique_secret_types: 5
   },
-  started_at: new Date(Date.now() - 240000).toISOString(),
-  completed_at: new Date(Date.now() - 180000).toISOString()
+  started_at: new Date(Date.now() - 300000).toISOString(),
+  completed_at: new Date(Date.now() - 240000).toISOString()
 };
 
-export function EC2Security() {
-  const [scanResult, setScanResult] = useState<EC2ScanResult | null>(null);
+export function GitleaksSecurity() {
+  const [scanResult, setScanResult] = useState<GitleaksScanResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRegion, setSelectedRegion] = useState('us-east-1');
+  const [repositoryPath, setRepositoryPath] = useState('/workspace');
+  const [scanMode, setScanMode] = useState('dir');
   const [loading, setLoading] = useState(false);
+  const [gitleaksInfo, setGitleaksInfo] = useState<any>(null);
+
+  useEffect(() => {
+    // Load Gitleaks info on component mount
+    const loadGitleaksInfo = async () => {
+      try {
+        const response = await fetch('/api/v1/gitleaks');
+        if (response.ok) {
+          const info = await response.json();
+          setGitleaksInfo(info);
+        }
+      } catch (err) {
+        console.warn('Failed to load Gitleaks info:', err);
+      }
+    };
+    
+    loadGitleaksInfo();
+  }, []);
 
   useEffect(() => {
     if (scanResult?.status === 'Completed') {
-      toast.success('EC2 security scan completed!', {
-        description: `Found ${scanResult.scan_summary.critical_findings + scanResult.scan_summary.high_findings} high-priority issues`
+      toast.success('Gitleaks scan completed!', {
+        description: `Found ${scanResult.scan_summary.total_secrets} secrets across ${scanResult.scan_summary.files_with_secrets} files`
       });
     } else if (scanResult?.status === 'Failed') {
-      toast.error('EC2 scan failed', {
-        description: 'Check AWS credentials and permissions'
+      toast.error('Gitleaks scan failed', {
+        description: 'Check repository path and permissions'
       });
     }
   }, [scanResult?.status]);
@@ -213,39 +221,37 @@ export function EC2Security() {
     setError(null);
     
     try {
-      toast.info('EC2 security scan started', {
-        description: 'Analyzing EC2 instances and security configurations...'
+      toast.info('Gitleaks scan started', {
+        description: 'Scanning repository for secrets and sensitive data...'
       });
 
-      // Simulate scan progress
-      const progressInterval = setInterval(() => {
-        setScanResult(prev => {
-          if (!prev) {
-            return {
-              ...mockEC2ScanResult,
-              status: 'Running',
-              progress: 15,
-              findings: []
-            };
-          }
-          if (prev.progress < 100) {
-            return { ...prev, progress: Math.min(prev.progress + 12, 100) };
-          }
-          return prev;
-        });
-      }, 700);
+      // Call real Gitleaks API
+      const response = await fetch('/api/v1/gitleaks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          repoPath: repositoryPath,
+          scanMode: scanMode,
+          maxDecodeDepth: 2, // Enable decoding for better secret detection
+          maxArchiveDepth: 1 // Enable archive scanning
+        })
+      });
 
-      // Complete scan after 7 seconds
-      setTimeout(() => {
-        clearInterval(progressInterval);
-        setScanResult(mockEC2ScanResult);
-        setIsScanning(false);
-      }, 7000);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setScanResult(result);
+      setIsScanning(false);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
       setIsScanning(false);
-      toast.error('Failed to start EC2 scan', {
+      toast.error('Failed to start Gitleaks scan', {
         description: err instanceof Error ? err.message : 'Unknown error'
       });
     }
@@ -257,8 +263,8 @@ export function EC2Security() {
       if (scanResult) {
         setScanResult({ ...scanResult, status: 'Failed' });
       }
-      toast.warning('EC2 scan stopped', {
-        description: 'Security scan was interrupted'
+      toast.warning('Gitleaks scan stopped', {
+        description: 'Secret scan was interrupted'
       });
     } catch (err) {
       toast.error('Failed to stop scan');
@@ -275,74 +281,100 @@ export function EC2Security() {
     }
   };
 
-  const getStateColor = (state: string) => {
-    switch (state) {
-      case 'running': return 'bg-[#00ff88] text-black';
-      case 'stopped': return 'bg-[#94a3b8] text-white';
-      case 'pending': return 'bg-[#ffb000] text-black';
-      case 'terminated': return 'bg-[#ff0040] text-white';
-      default: return 'bg-gray-500 text-white';
-    }
-  };
-
   return (
     <div className="p-6 space-y-6">
       <DemoModeBanner />
       
-      {/* EC2 Scan Configuration */}
+      {/* Gitleaks Info */}
+      {gitleaksInfo && (
+        <Card className="cyber-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-primary" />
+              Gitleaks Scanner Info
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Version</p>
+                <p className="font-mono text-sm">{gitleaksInfo.gitleaks_version}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Available Scan Modes</p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {gitleaksInfo.available_scan_modes?.map((mode: string) => (
+                    <Badge key={mode} variant="outline" className="text-xs">
+                      {mode}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* EC2 Scan Configuration -- change to gitleaks */}
       <Card className="cyber-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Server className="h-5 w-5 text-primary" />
-            EC2 Security Configuration Scan
+            <Lock className="h-5 w-5 text-primary" />
+            Gitleaks Secret Detection Scan
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-4">
               <div>
-                <Label htmlFor="region">AWS Region</Label>
-                <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                  <SelectTrigger className="bg-input border-border">
-                    <SelectValue placeholder="Select Region" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="us-east-1">US East (N. Virginia)</SelectItem>
-                    <SelectItem value="us-west-2">US West (Oregon)</SelectItem>
-                    <SelectItem value="eu-west-1">Europe (Ireland)</SelectItem>
-                    <SelectItem value="ap-southeast-1">Asia Pacific (Singapore)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="repo-path">Repository Path</Label>
+                <Input 
+                  id="repo-path"
+                  placeholder="/path/to/repository"
+                  className="bg-input border-border"
+                  value={repositoryPath}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRepositoryPath(e.target.value)}
+                />
               </div>
               <div>
-                <Label htmlFor="instance-filter">Instance Filter</Label>
-                <Input 
-                  id="instance-filter"
-                  placeholder="Filter by tag, name, or ID"
-                  className="bg-input border-border"
-                />
+                <Label htmlFor="scan-mode">Scan Mode</Label>
+                <Select value={scanMode} onValueChange={setScanMode}>
+                  <SelectTrigger className="bg-input border-border">
+                    <SelectValue placeholder="Select scan mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dir">Directory Scan (No Git)</SelectItem>
+                    <SelectItem value="git">Git History Scan</SelectItem>
+                    <SelectItem value="staged">Staged Files Only</SelectItem>
+                    <SelectItem value="commit">Specific Commit</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             
             <div className="space-y-4">
               <div>
-                <Label>Security Checks</Label>
+                <Label>Detection Rules</Label>
                 <div className="space-y-2 mt-2">
                   <label className="flex items-center space-x-2">
                     <input type="checkbox" defaultChecked className="rounded" />
-                    <span className="text-sm">Security Group Rules</span>
+                    <span className="text-sm">API Keys & Tokens</span>
                   </label>
                   <label className="flex items-center space-x-2">
                     <input type="checkbox" defaultChecked className="rounded" />
-                    <span className="text-sm">EBS Encryption</span>
+                    <span className="text-sm">Database Credentials</span>
                   </label>
                   <label className="flex items-center space-x-2">
                     <input type="checkbox" defaultChecked className="rounded" />
-                    <span className="text-sm">Public IP Exposure</span>
+                    <span className="text-sm">Private Keys</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input type="checkbox" defaultChecked className="rounded" />
+                    <span className="text-sm">Cloud Provider Keys</span>
                   </label>
                   <label className="flex items-center space-x-2">
                     <input type="checkbox" className="rounded" />
-                    <span className="text-sm">Instance Metadata</span>
+                    <span className="text-sm">Generic Secrets</span>
                   </label>
                 </div>
               </div>
@@ -350,23 +382,23 @@ export function EC2Security() {
 
             <div className="space-y-4">
               <div>
-                <Label>Compliance Standards</Label>
+                <Label>Output Options</Label>
                 <div className="space-y-2 mt-2">
                   <label className="flex items-center space-x-2">
                     <input type="checkbox" defaultChecked className="rounded" />
-                    <span className="text-sm">CIS AWS Foundations</span>
+                    <span className="text-sm">JSON Report</span>
                   </label>
                   <label className="flex items-center space-x-2">
                     <input type="checkbox" defaultChecked className="rounded" />
-                    <span className="text-sm">SOC 2 Type II</span>
+                    <span className="text-sm">CSV Export</span>
                   </label>
                   <label className="flex items-center space-x-2">
                     <input type="checkbox" className="rounded" />
-                    <span className="text-sm">PCI-DSS</span>
+                    <span className="text-sm">Detailed Logs</span>
                   </label>
                   <label className="flex items-center space-x-2">
-                    <input type="checkbox" className="rounded" />
-                    <span className="text-sm">HIPAA</span>
+                    <input type="checkbox" defaultChecked className="rounded" />
+                    <span className="text-sm">Redacted Secrets</span>
                   </label>
                 </div>
               </div>
@@ -380,7 +412,7 @@ export function EC2Security() {
               className="bg-primary text-primary-foreground hover:bg-primary/80 cyber-glow"
             >
               <Play className="h-4 w-4 mr-2" />
-              {isScanning ? "Scanning..." : "Start EC2 Scan"}
+              {isScanning ? "Scanning..." : "Start Scan"}
             </Button>
             
             {isScanning && (
@@ -416,7 +448,7 @@ export function EC2Security() {
         <Card className="cyber-card">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>EC2 Security Scan Progress</span>
+              <span>Gitleaks Secret Scan Progress</span>
               <div className="flex items-center gap-2">
                 {scanResult && (
                   <Button 
@@ -449,8 +481,8 @@ export function EC2Security() {
               />
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>
-                  {isScanning ? 'Analyzing EC2 instances...' : 
-                   scanResult ? `Scanned ${scanResult.total_instances} instances in ${scanResult.region}` :
+                  {isScanning ? 'Scanning repository for secrets...' : 
+                   scanResult ? `Scanned ${scanResult.total_files_scanned} files in ${scanResult.repository_path}` :
                    'Ready to scan'}
                 </span>
                 <span>{scanResult?.progress || 0}%</span>
@@ -486,26 +518,26 @@ export function EC2Security() {
         <Card className="cyber-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Cloud className="h-5 w-5 text-primary" />
-              EC2 Security Findings ({scanResult.findings.length} issues)
+              <Lock className="h-5 w-5 text-primary" />
+              Gitleaks Secret Findings ({scanResult.findings.length} secrets found)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="findings" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="findings">Security Findings</TabsTrigger>
-                <TabsTrigger value="instances">Instance Overview</TabsTrigger>
-                <TabsTrigger value="compliance">Compliance Status</TabsTrigger>
+                <TabsTrigger value="findings">Secret Findings</TabsTrigger>
+                <TabsTrigger value="instances">File Overview</TabsTrigger>
+                <TabsTrigger value="compliance">Scan Summary</TabsTrigger>
               </TabsList>
               
               <TabsContent value="findings" className="space-y-4">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-border">
-                      <TableHead>Instance</TableHead>
-                      <TableHead>Finding Type</TableHead>
+                      <TableHead>File</TableHead>
+                      <TableHead>Secret Type</TableHead>
                       <TableHead>Severity</TableHead>
-                      <TableHead>State</TableHead>
+                      <TableHead>Line</TableHead>
                       <TableHead>Risk Score</TableHead>
                       <TableHead>Recommendation</TableHead>
                     </TableRow>
@@ -523,23 +555,23 @@ export function EC2Security() {
                         </TableRow>
                       ))
                     ) : (
-                      scanResult.findings.map((finding) => (
+                      scanResult.findings.map((finding: GitleaksFinding) => (
                         <TableRow 
                           key={finding.id} 
                           className="border-border cursor-pointer hover:bg-accent/10 transition-colors"
                         >
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Server className="h-4 w-4" />
+                              <FileText className="h-4 w-4" />
                               <div>
-                                <p className="font-mono text-sm">{finding.instance_name}</p>
-                                <p className="text-xs text-muted-foreground">{finding.instance_id}</p>
+                                <p className="font-mono text-sm">{finding.file}</p>
+                                <p className="text-xs text-muted-foreground">Line {finding.line}</p>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div>
-                              <p className="font-medium text-sm">{finding.finding_type}</p>
+                              <p className="font-medium text-sm">{finding.rule_name}</p>
                               <p className="text-xs text-muted-foreground">{finding.description}</p>
                             </div>
                           </TableCell>
@@ -549,8 +581,8 @@ export function EC2Security() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge className={getStateColor(finding.state)}>
-                              {finding.state}
+                            <Badge variant="outline" className="border-border">
+                              {finding.line}:{finding.column}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -576,54 +608,78 @@ export function EC2Security() {
               <TabsContent value="instances" className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="cyber-glass p-4 rounded-lg text-center">
-                    <Server className="h-8 w-8 text-primary mx-auto mb-2" />
-                    <p className="text-2xl font-medium">{scanResult.scan_summary.running_instances}</p>
-                    <p className="text-sm text-muted-foreground">Running</p>
-                  </div>
-                  <div className="cyber-glass p-4 rounded-lg text-center">
-                    <Cpu className="h-8 w-8 text-primary mx-auto mb-2" />
-                    <p className="text-2xl font-medium">{scanResult.scan_summary.stopped_instances}</p>
-                    <p className="text-sm text-muted-foreground">Stopped</p>
-                  </div>
-                  <div className="cyber-glass p-4 rounded-lg text-center">
-                    <Network className="h-8 w-8 text-primary mx-auto mb-2" />
-                    <p className="text-2xl font-medium">{scanResult.scan_summary.publicly_accessible}</p>
-                    <p className="text-sm text-muted-foreground">Public</p>
+                    <FileText className="h-8 w-8 text-primary mx-auto mb-2" />
+                    <p className="text-2xl font-medium">{scanResult.scan_summary.files_with_secrets}</p>
+                    <p className="text-sm text-muted-foreground">Files with Secrets</p>
                   </div>
                   <div className="cyber-glass p-4 rounded-lg text-center">
                     <Lock className="h-8 w-8 text-primary mx-auto mb-2" />
-                    <p className="text-2xl font-medium">{scanResult.scan_summary.unencrypted_volumes}</p>
-                    <p className="text-sm text-muted-foreground">Unencrypted</p>
+                    <p className="text-2xl font-medium">{scanResult.scan_summary.total_secrets}</p>
+                    <p className="text-sm text-muted-foreground">Total Secrets</p>
+                  </div>
+                  <div className="cyber-glass p-4 rounded-lg text-center">
+                    <Shield className="h-8 w-8 text-primary mx-auto mb-2" />
+                    <p className="text-2xl font-medium">{scanResult.scan_summary.unique_secret_types}</p>
+                    <p className="text-sm text-muted-foreground">Secret Types</p>
+                  </div>
+                  <div className="cyber-glass p-4 rounded-lg text-center">
+                    <AlertTriangle className="h-8 w-8 text-primary mx-auto mb-2" />
+                    <p className="text-2xl font-medium">{scanResult.scan_summary.critical_findings + scanResult.scan_summary.high_findings}</p>
+                    <p className="text-sm text-muted-foreground">High Risk</p>
                   </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="compliance" className="space-y-4">
                 <div className="grid gap-4">
-                  {['CIS AWS Foundations', 'SOC 2 Type II', 'PCI-DSS', 'HIPAA'].map((framework) => {
-                    const criticalCount = scanResult.findings.filter(f => 
-                      f.compliance_frameworks.includes(framework.split(' ')[0]) && f.severity === 'Critical'
-                    ).length;
-                    const highCount = scanResult.findings.filter(f => 
-                      f.compliance_frameworks.includes(framework.split(' ')[0]) && f.severity === 'High'
-                    ).length;
-                    const score = Math.max(0, 100 - (criticalCount * 30 + highCount * 20));
-                    
-                    return (
-                      <div key={framework} className="cyber-glass p-4 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium">{framework}</h4>
-                          <Badge className={score > 80 ? getSeverityColor('Low') : score > 60 ? getSeverityColor('Medium') : getSeverityColor('High')}>
-                            {score}% Compliant
-                          </Badge>
-                        </div>
-                        <Progress value={score} className="h-2" />
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {criticalCount + highCount} high-priority issues found
-                        </p>
+                  <div className="cyber-glass p-4 rounded-lg">
+                    <h4 className="font-medium mb-4">Scan Summary</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Repository Path:</span>
+                        <span className="font-mono text-sm">{scanResult.repository_path}</span>
                       </div>
-                    );
-                  })}
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Scan Mode:</span>
+                        <Badge variant="outline">{scanResult.scan_mode}</Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Files Scanned:</span>
+                        <span className="font-medium">{scanResult.total_files_scanned}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Scan Duration:</span>
+                        <span className="text-sm">
+                          {scanResult.started_at && scanResult.completed_at ? 
+                            `${Math.round((new Date(scanResult.completed_at).getTime() - new Date(scanResult.started_at).getTime()) / 1000)}s` : 
+                            'N/A'
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="cyber-glass p-4 rounded-lg">
+                    <h4 className="font-medium mb-4">Severity Breakdown</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Critical:</span>
+                        <Badge className={getSeverityColor('Critical')}>{scanResult.scan_summary.critical_findings}</Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">High:</span>
+                        <Badge className={getSeverityColor('High')}>{scanResult.scan_summary.high_findings}</Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Medium:</span>
+                        <Badge className={getSeverityColor('Medium')}>{scanResult.scan_summary.medium_findings}</Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Low:</span>
+                        <Badge className={getSeverityColor('Low')}>{scanResult.scan_summary.low_findings}</Badge>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>

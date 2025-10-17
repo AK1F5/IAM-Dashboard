@@ -3,7 +3,7 @@ import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { Dashboard } from "./components/Dashboard";
 import { AWSIAMScan } from "./components/AWSIAMScan";
-import { EC2Security } from "./components/EC2Security";
+import { GitleaksSecurity } from "./components/EC2Security";
 import { S3Security } from "./components/S3Security";
 import { GrafanaIntegration } from "./components/GrafanaIntegration";
 import { CloudSecurityAlerts } from "./components/CloudSecurityAlerts";
@@ -21,7 +21,7 @@ export default function App() {
       case "iam-security":
         return <AWSIAMScan />;
       case "ec2-security":
-        return <EC2Security />;
+        return <GitleaksSecurity />;
       case "s3-security":
         return <S3Security />;
       case "network-security":
